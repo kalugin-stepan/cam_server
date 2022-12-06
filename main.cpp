@@ -9,11 +9,18 @@ namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace http = beast::http;
 
-ptrdiff_t find(const char* data, size_t data_size, uint16_t c);
+ptrdiff_t find(const char* data, const size_t data_size, const char* str, const size_t str_size);
+
+//#define DEBUG
 
 #define IMG_SIZE 1280 * 720 * 3
 
-#define FRAME_HEADER_TEMPLATE "\r\n--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %lu\r\n\r\n"
+#define FRAME_HEADER_TEMPLATE "\r\n--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %llu\r\n\r\n"
+
+const char* jpg_start = "\xff\xd8\xff";
+const size_t jpg_start_size = strlen(jpg_start);
+const char* jpg_end = "\xff\xd9";
+const size_t jpg_end_size = strlen(jpg_end);
 
 void handle_connection(tcp::socket http_client);
 void handle_connections();
@@ -40,6 +47,11 @@ int main() {
 		return ec.value();
 	}
 
+#ifdef DEBUG
+	std::cout << "Camera connected." << std::endl;
+#endif
+
+
 	img = new char[IMG_SIZE];
 
 	char* data = new char[IMG_SIZE];
@@ -56,11 +68,8 @@ int main() {
 		}
 		data_index += buffer_size;
 
-		const uint16_t start = '\xff\xd8';
-		const uint16_t end = '\xff\xd9';
-
-		ptrdiff_t a = find(data, data_index, start);
-		ptrdiff_t b = find(data, data_index, end);
+		ptrdiff_t a = find(data, data_index, jpg_start, jpg_start_size);
+		ptrdiff_t b = find(data, data_index, jpg_end, jpg_end_size);
 		if (a != -1 && b != -1) {
 			img_size = b - a + 2;
 			is_writing_to_img = true;
@@ -74,6 +83,9 @@ int main() {
 			}
 			memcpy(data, data + b + 2, data_index - b - 2);
 			data_index -= b + 2;
+#ifdef DEBUG
+			std::cout << "Recived " << img_size << " bytes." << std::endl;
+#endif
 		}
 	}
 
@@ -82,9 +94,16 @@ int main() {
 	return ec.value();
 }
 
-ptrdiff_t find(const char* data, size_t data_size, uint16_t c) {
-	for (size_t i = 0; i < data_size - 1; i++) {
-		if (*(uint16_t*)(data + i) == c) return i;
+ptrdiff_t find(const char* data, const size_t data_size, const char* str, const size_t str_size) {
+	for (size_t i = 0; i < data_size - str_size; i++) {
+		bool found = true;
+		for (size_t j = 0; j < str_size; j++) {
+			if (data[i + j] != str[j]) {
+				found = false;
+				break;
+			}
+		}
+		if (found) return i;
 	}
 	return -1;
 }
@@ -121,8 +140,11 @@ void handle_connection(tcp::socket http_client) {
 		memcpy(local_img, img, local_img_size);
 
 		char header[80];
-
+#if _WIN32
 		int header_size = sprintf_s(header, 80, FRAME_HEADER_TEMPLATE, local_img_size);
+#else
+		int header_size = sprintf(header, FRAME_HEADER_TEMPLATE, local_img_size);
+#endif
 
 		if (header_size <= 0) {
 			std::cerr << "Failed to create header wtf?" << std::endl;
@@ -150,6 +172,9 @@ void handle_connections() {
 	for (;;) {
 		try {
 			std::thread(handle_connection, http_acceptor.accept()).detach();
+#ifdef DEBUG
+			std::cout << "User connected." << std::endl;
+#endif
 		}
 		catch (boost::system::system_error e) {
 			std::cerr << "Failed to accept http client: " << e.what() << std::endl;
