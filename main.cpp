@@ -32,6 +32,8 @@ size_t img_index = 0;
 
 bool is_writing_to_img = false;
 
+bool steel_receiving = true;
+
 int main() {
 	setlocale(LC_ALL, "russian");
 
@@ -89,6 +91,8 @@ int main() {
 		}
 	}
 
+	steel_receiving = false;
+
 	delete[] img;
 	delete[] data;
 	return ec.value();
@@ -131,7 +135,7 @@ void handle_connection(tcp::socket http_client) {
 	}
 	char* local_img = new char[IMG_SIZE];
 	size_t last_img_index = 0;
-	for (;;) {
+	while (steel_receiving) {
 		while (is_writing_to_img || last_img_index == img_size) {}
 		last_img_index = img_index;
 
@@ -169,7 +173,7 @@ void handle_connections() {
 	asio::io_context http_context;
 	tcp::acceptor http_acceptor(http_context, tcp::endpoint(tcp::v4(), 8000));
 
-	for (;;) {
+	while (steel_receiving) {
 		try {
 			std::thread(handle_connection, http_acceptor.accept()).detach();
 #ifdef DEBUG
