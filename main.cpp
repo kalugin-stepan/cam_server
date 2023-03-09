@@ -204,6 +204,8 @@ void handle_http_connections() {
 }
 
 void handle_cam_connection(tcp::socket cam_client) {
+	typedef boost::asio::detail::socket_option::integer<SOL_SOCKET, SO_RCVTIMEO> rcv_timeout_option;
+	cam_client.set_option(rcv_timeout_option(5000));
 	beast::error_code ec;
 
 	char id[37];
@@ -266,6 +268,10 @@ void handle_cam_connection(tcp::socket cam_client) {
 			buffer_index -= b + 2;
 		}
 	}
+
+#ifdef DEBUG
+	std::cout << "Cam " << addr << " with id " << id << " disconnected" << std::endl;
+#endif 
 	
 	imgs.erase(id);
 

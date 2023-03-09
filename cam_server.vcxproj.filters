@@ -20,9 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="index.html" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="log.txt" />
+    <None Include="config.json" />
   </ItemGroup>
 </Project>
