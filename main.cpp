@@ -204,9 +204,17 @@ void handle_http_connections() {
 }
 
 void handle_cam_connection(tcp::socket cam_client) {
-	typedef boost::asio::detail::socket_option::integer<SOL_SOCKET, SO_RCVTIMEO> rcv_timeout_option;
-	cam_client.set_option(rcv_timeout_option(5000));
 	beast::error_code ec;
+	typedef boost::asio::detail::socket_option::integer<SOL_SOCKET, SO_RCVTIMEO> rcv_timeout_option;
+	cam_client.set_option(rcv_timeout_option(5000), ec);
+
+	if (ec) {
+#ifdef DEBUG
+		std::cout << ec.message() << std::endl;
+#endif
+		cam_client.close();
+		return;
+	}
 
 	char id[37];
 	id[36] = '\0';
